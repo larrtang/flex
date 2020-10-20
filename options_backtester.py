@@ -45,8 +45,12 @@ EXPIRATION = 16
 
 if __name__ == "__main__":
     timestamp, data = getDailyData('SPX')
+    vix_timestamp, vix_data = getDailyData('VIX')
     mktData = parseData(data)
+    vix_mktData = parseData(data)
+
     c = mktData.c
+    vix = vix_mktData.c
     #c = c[-750:]
     PnL = 0
     numLosses = 0

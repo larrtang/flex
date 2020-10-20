@@ -20,9 +20,11 @@ def getIntradayData(sym='SPY'):
     return timestamps, df
 
 
-def getDailyData(sym='SPY'):
-    ## TODO: 
+def getDailyData(sym='SPX'):
+    ## TODO:
+    assert(type(sym) is str)
     api_key=os.getenv('AV')
+    assert (type(api_key) is str)
     url = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+sym+'&outputsize=full&apikey='+api_key
     response = requests.get(url)
     #print(response.json())

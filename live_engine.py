@@ -2,11 +2,13 @@ from AlphaVantage import getIntradayData
 
 class engine:
     
-    def __init__ (self, backtest = 0):
+    def __init__ (self, backtest = 0, trader):
         self.backtest = backtest
         self.timestamps = None
         self.market_data = {}
         self.sym_list = []  # get from Strategy
+        self.trader = trader
+
     
     
     def begin(self):
