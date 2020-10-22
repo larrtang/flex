@@ -1,6 +1,11 @@
-package io.flex.Commons;
+package io.flex.business;
 
-import org.jquantlib.QL;
+import io.flex.commons.Instrument;
+import io.flex.commons.Portfolio;
+import io.flex.commons.Position;
+import com.studerw.tda.model.option.Option;
+import com.studerw.tda.model.quote.EquityQuote;
+import com.studerw.tda.model.quote.EtfQuote;
 import org.jquantlib.Settings;
 import org.jquantlib.daycounters.Actual365Fixed;
 import org.jquantlib.daycounters.DayCounter;
@@ -9,23 +14,13 @@ import org.jquantlib.exercise.BermudanExercise;
 import org.jquantlib.exercise.EuropeanExercise;
 import org.jquantlib.exercise.Exercise;
 import org.jquantlib.instruments.EuropeanOption;
-import org.jquantlib.instruments.Option;
 import org.jquantlib.instruments.Payoff;
 import org.jquantlib.instruments.PlainVanillaPayoff;
 import org.jquantlib.instruments.VanillaOption;
-import org.jquantlib.methods.lattices.AdditiveEQPBinomialTree;
-import org.jquantlib.methods.lattices.CoxRossRubinstein;
-import org.jquantlib.methods.lattices.JarrowRudd;
-import org.jquantlib.methods.lattices.Joshi4;
-import org.jquantlib.methods.lattices.LeisenReimer;
-import org.jquantlib.methods.lattices.Tian;
-import org.jquantlib.methods.lattices.Trigeorgis;
+import org.jquantlib.math.Ops;
+import org.jquantlib.methods.lattices.*;
 import org.jquantlib.pricingengines.AnalyticEuropeanEngine;
-import org.jquantlib.pricingengines.vanilla.BaroneAdesiWhaleyApproximationEngine;
-import org.jquantlib.pricingengines.vanilla.BinomialVanillaEngine;
-import org.jquantlib.pricingengines.vanilla.BjerksundStenslandApproximationEngine;
-import org.jquantlib.pricingengines.vanilla.IntegralEngine;
-import org.jquantlib.pricingengines.vanilla.JuQuadraticApproximationEngine;
+import org.jquantlib.pricingengines.vanilla.*;
 import org.jquantlib.pricingengines.vanilla.finitedifferences.FDAmericanEngine;
 import org.jquantlib.pricingengines.vanilla.finitedifferences.FDBermudanEngine;
 import org.jquantlib.pricingengines.vanilla.finitedifferences.FDEuropeanEngine;
@@ -37,66 +32,182 @@ import org.jquantlib.termstructures.BlackVolTermStructure;
 import org.jquantlib.termstructures.YieldTermStructure;
 import org.jquantlib.termstructures.volatilities.BlackConstantVol;
 import org.jquantlib.termstructures.yieldcurves.FlatForward;
-import org.jquantlib.time.Calendar;
-import org.jquantlib.time.Date;
-import org.jquantlib.time.Month;
-import org.jquantlib.time.Period;
-import org.jquantlib.time.TimeUnit;
+import org.jquantlib.time.*;
 import org.jquantlib.time.calendars.Target;
 
-/**
- * Calculates equity option values with a number of methods
- *
- *
- * @author Richard Gomes
- */
-public class EquityOptions implements Runnable {
+import javax.sound.sampled.Port;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 
-    public static void main(final String[] args) {
-        new EquityOptions().run();
+/**
+ * Class used to calculate theoretical and actual options prices and greeks.
+ *
+ */
+public class OptionsRiskEngine {
+
+    private double granularity;
+
+    private Instrument option;
+
+    private double evalStartPrice;
+    private double evalEndPrice;
+    private final double EVAL_PRICE_THRESH_PERCENT = 0.10;
+
+    public  ArrayList<Position> positions = new ArrayList<>();
+
+    public int eval_days_from_now = 0;
+
+    public OptionsRiskEngine(
+            Instrument option,
+            double granularity
+    ) {
+        this.option = option;
+        this.granularity = granularity;
+
+        // calculate range, to calculate risk graph
+        if (option.underlyingQuote instanceof EquityQuote) {
+            EquityQuote equote = (EquityQuote) option.underlyingQuote;
+            this.evalStartPrice = Math.round(equote.getMark().doubleValue() * (1 - EVAL_PRICE_THRESH_PERCENT));
+            this.evalEndPrice = Math.round(equote.getMark().doubleValue() * (1 + EVAL_PRICE_THRESH_PERCENT));
+        }
+        else if (option.underlyingQuote instanceof EtfQuote) {
+            EtfQuote equote = (EtfQuote) option.underlyingQuote;
+            this.evalStartPrice = Math.round(equote.getMark().doubleValue() * (1 - EVAL_PRICE_THRESH_PERCENT));
+            this.evalEndPrice = Math.round(equote.getMark().doubleValue() * (1 + EVAL_PRICE_THRESH_PERCENT));
+        }
+        // TODO: add support for index quotes
+    }
+    public OptionsRiskEngine(
+            Portfolio portfolio,
+            double granularity
+    ) {
+        // only supporting first instrument now
+        this(portfolio.firstInstrument, granularity);
     }
 
-    @Override
-    public void run() {
+    public Map<Double, Double> getRiskGraphToday() {
+        Map<Double, Double> riskMap = new HashMap<>();
 
-        QL.info("::::: " + this.getClass().getSimpleName() + " :::::");
+        for (double i = this.evalStartPrice; i <= this.evalEndPrice; i += this.granularity) {
+            for (Position leg : this.positions) {
+                double val = getTheoreticalValue(leg.instrument, i)*leg.quantity;
+                if (riskMap.containsKey(i))
+                    riskMap.put(i, riskMap.get(i) + val);
+                else
+                    riskMap.put(i, val);
+            }
+        }
 
+        return riskMap;
+    }
+
+    public Map<Timestamp, Map<Double, Double>> getAllExpirationRiskGraphs() {
+        Map<Timestamp, Map<Double, Double>> riskMap = new HashMap<>();
+
+
+
+        return riskMap;
+    }
+
+
+    public Map<Double, Double> getRiskGraphExpiration(ArrayList<Position> legs) {
+        Map<Double, Double> riskMap = new HashMap<>();
+
+        for (double i = this.evalStartPrice; i <= this.evalEndPrice; i += this.granularity) {
+            for (Position leg : legs) {
+                if (riskMap.containsKey(i))
+                    riskMap.put(i, riskMap.get(i) + getExpirationValue(leg.instrument, i)*leg.quantity);
+                else
+                    riskMap.put(i, getExpirationValue(leg.instrument, i)*leg.quantity);
+            }
+        }
+
+        return riskMap;
+    }
+
+    public Map<Double, Double> getRiskGraphExpiration(Instrument option) {
+        Map<Double, Double> riskMap = new HashMap<>();
+
+        for (double i = this.evalStartPrice; i <= this.evalEndPrice; i += this.granularity) {
+            riskMap.put(i, getExpirationValue(option, i));
+        }
+
+        return riskMap;
+    }
+
+    public Map<Double, Double> getRiskGraphExpiration(Option option) {
+        Map<Double, Double> riskMap = new HashMap<>();
+
+        for (double i = this.evalStartPrice; i <= this.evalEndPrice; i += this.granularity) {
+            riskMap.put(i, getExpirationValue(option, i));
+        }
+
+        return riskMap;
+    }
+
+    private double getExpirationValue(Instrument option, double underlyingMark) {
+        double strike = option.getStrikePrice().doubleValue();
+        double extrinsic = option.getMarkPrice().doubleValue()*100;
+        if (option.getPutCall() == Option.PutCall.CALL) {
+            double val = -extrinsic + (underlyingMark - strike)*100;
+            return Math.max(val, -extrinsic);
+        }
+        else if (option.getPutCall() == Option.PutCall.PUT) {
+            double val = -extrinsic - (underlyingMark - strike)*100;
+            return Math.max(val, -extrinsic);
+        }
+
+        return Double.MIN_VALUE;
+    }
+
+    private double getExpirationValue(Option option, double underlyingMark) {
+        double strike = option.getStrikePrice().doubleValue();
+        double extrinsic = option.getMarkPrice().doubleValue()*100;
+        if (option.getPutCall() == Option.PutCall.CALL) {
+            double val = -extrinsic + (underlyingMark - strike)*100;
+            return Math.max(val, -extrinsic);
+        }
+        else if (option.getPutCall() == Option.PutCall.PUT) {
+            double val = -extrinsic - (underlyingMark - strike)*100;
+            return Math.max(val, -extrinsic);
+        }
+
+        return Double.MIN_VALUE;
+    }
+
+    private double getTheoreticalValue(Instrument option, double underlyingMark) {
+        double val = 0;
+
+
+        // I have no idea what the fuck we should use
 
 
         // set up dates
         final Calendar calendar = new Target();
-        final Date todaysDate = new Date(19, Month.October, 2020);
-        final Date settlementDate = new Date(19, Month.October, 2020);
+        final Date todaysDate = Date.todaysDate();
+        final Date settlementDate = todaysDate.add(eval_days_from_now);  //days from the current day, projected pnl
         new Settings().setEvaluationDate(todaysDate);
 
+        final org.jquantlib.instruments.Option.Type type;
         // our options
-        final Option.Type type = Option.Type.Put;
-        final double strike = 350.00;
-        final double underlying = 347.29;
+        if (option.putcall == Option.PutCall.CALL) {
+            type = org.jquantlib.instruments.Option.Type.Call;
+        } else {
+            type = org.jquantlib.instruments.Option.Type.Put;
+        }
+        final double strike = option.strike.doubleValue();
+        final double underlying = underlyingMark;
         /*@Rate*/final double riskFreeRate = 0.01;
-        final double volatility = 0.20051;
+        final double volatility = option.iv;
         final double dividendYield = 0.00;
 
 
-        final Date maturity = new Date(30, Month.October, 2020);
+        final Date maturity = option.getExpirationDate();
         final DayCounter dayCounter = new Actual365Fixed();
 
-        // define line formatting
-        //              "         1         2         3         4         5         6         7         8         9"
-        //              "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
-        //              "                            Method      European      Bermudan      American";
-        //              "================================== ============= ============= ============="
-        //              "12345678901234567890123456789012345678901234 123.567890123 123.567890123 123.567890123";
-        final String fmt    = "%34s %13.9f %13.9f %13.9f\n";
-        final String fmttbd = "%34s %13.9f %13.9f %13.9f  (TO BE DONE)\n";
-
-        // write column headings
-        //                 "         1         2         3         4         5         6         7         8"
-        //                 "12345678901234567890123456789012345678901234567890123456789012345678901234567890"
-        System.out.println("                            Method      European      Bermudan      American");
-        System.out.println("================================== ============= ============= =============");
-
-        // Define exercise for European Options
         final Exercise europeanExercise = new EuropeanExercise(maturity);
 
         // Define exercise for Bermudan Options
@@ -134,27 +245,23 @@ public class EquityOptions implements Runnable {
         // Black-Scholes for European
         String method = "Black-Scholes";
         europeanOption.setPricingEngine(new AnalyticEuropeanEngine(bsmProcess));
-        System.out.printf(fmt, method, europeanOption.NPV(), Double.NaN, Double.NaN );
 
         // Barone-Adesi and Whaley approximation for American
         method = "Barone-Adesi/Whaley";
         americanOption.setPricingEngine(new BaroneAdesiWhaleyApproximationEngine(bsmProcess));
-        System.out.printf(fmt, method, Double.NaN, Double.NaN, americanOption.NPV() );
+        val = americanOption.NPV();
 
         // Bjerksund and Stensland approximation for American
         method = "Bjerksund/Stensland";
         americanOption.setPricingEngine(new BjerksundStenslandApproximationEngine(bsmProcess));
-        System.out.printf(fmt, method, Double.NaN, Double.NaN, americanOption.NPV() );
 
         // Ju Quadratic approximation for American
         method = "Ju Quadratic";
         americanOption.setPricingEngine(new JuQuadraticApproximationEngine(bsmProcess));
-        System.out.printf(fmt, method, Double.NaN, Double.NaN, americanOption.NPV() );
 
         // Integral
         method = "Integral";
         europeanOption.setPricingEngine(new IntegralEngine(bsmProcess));
-        System.out.printf(fmt, method, europeanOption.NPV(), Double.NaN, Double.NaN );
 
         int timeSteps = 801;
 
@@ -167,7 +274,6 @@ public class EquityOptions implements Runnable {
         if (System.getProperty("EXPERIMENTAL") != null) {
             bNPV = bermudanOption.NPV();
         }
-        System.out.printf(fmt, method, europeanOption.NPV(), bNPV, americanOption.NPV() );
 
         method = "Binomial Cox-Ross-Rubinstein";
         europeanOption.setPricingEngine(new BinomialVanillaEngine<CoxRossRubinstein>(CoxRossRubinstein.class, bsmProcess, timeSteps));
@@ -176,7 +282,6 @@ public class EquityOptions implements Runnable {
         if (System.getProperty("EXPERIMENTAL") != null) {
             bNPV = bermudanOption.NPV();
         }
-        System.out.printf(fmt, method, europeanOption.NPV(), bNPV, americanOption.NPV() );
 
         method = "Additive EquiProbabilities";
         europeanOption.setPricingEngine(new BinomialVanillaEngine<AdditiveEQPBinomialTree>(AdditiveEQPBinomialTree.class, bsmProcess, timeSteps));
@@ -185,7 +290,6 @@ public class EquityOptions implements Runnable {
         if (System.getProperty("EXPERIMENTAL") != null) {
             bNPV = bermudanOption.NPV();
         }
-        System.out.printf(fmt, method, europeanOption.NPV(), bNPV, americanOption.NPV() );
 
         method = "Binomial Trigeorgis";
         europeanOption.setPricingEngine(new BinomialVanillaEngine<Trigeorgis>(Trigeorgis.class, bsmProcess, timeSteps));
@@ -194,7 +298,6 @@ public class EquityOptions implements Runnable {
         if (System.getProperty("EXPERIMENTAL") != null) {
             bNPV = bermudanOption.NPV();
         }
-        System.out.printf(fmt, method, europeanOption.NPV(), bNPV, americanOption.NPV() );
 
         method = "Binomial Tian";
         europeanOption.setPricingEngine(new BinomialVanillaEngine<Tian>(Tian.class, bsmProcess, timeSteps));
@@ -203,7 +306,6 @@ public class EquityOptions implements Runnable {
         if (System.getProperty("EXPERIMENTAL") != null) {
             bNPV = bermudanOption.NPV();
         }
-        System.out.printf(fmt, method, europeanOption.NPV(), bNPV, americanOption.NPV() );
 
         method = "Binomial Leisen-Reimer";
         europeanOption.setPricingEngine(new BinomialVanillaEngine<LeisenReimer>(LeisenReimer.class, bsmProcess, timeSteps));
@@ -212,7 +314,6 @@ public class EquityOptions implements Runnable {
         if (System.getProperty("EXPERIMENTAL") != null) {
             bNPV = bermudanOption.NPV();
         }
-        System.out.printf(fmt, method, europeanOption.NPV(), bNPV, americanOption.NPV() );
 
         method = "Binomial Joshi";
         europeanOption.setPricingEngine(new BinomialVanillaEngine<Joshi4>(Joshi4.class, bsmProcess, timeSteps));
@@ -221,7 +322,6 @@ public class EquityOptions implements Runnable {
         if (System.getProperty("EXPERIMENTAL") != null) {
             bNPV = bermudanOption.NPV();
         }
-        System.out.printf(fmt, method, europeanOption.NPV(), bNPV, americanOption.NPV() );
 
 
         //
@@ -236,50 +336,11 @@ public class EquityOptions implements Runnable {
         if (System.getProperty("EXPERIMENTAL") != null) {
             bNPV = bermudanOption.NPV();
         }
-        System.out.printf(fmt, method, europeanOption.NPV(), bNPV, americanOption.NPV() );
 
-        //
-        //
-        //
-
-
-        // Monte Carlo Method
-        timeSteps = 1;
-        final int mcSeed = 42;
-        final int nSamples = 32768; // 2^15
-        final int maxSamples = 1048576; // 2^20
-
-        method = "Monte Carlo (crude)";
-        System.out.printf(fmttbd, method, Double.NaN, Double.NaN, Double.NaN );
-        // ========================================================================================
-        //        europeanOption.setPricingEngine(
-        //            new MCEuropeanEngine(
-        //                "PseudoRandom", timeSteps, 252,
-        //                false, false, false,
-        //                nSamples, 0.02, maxSamples, mcSeed));
-        //        System.out.printf(fmt, method, europeanOption.NPV(), Double.NaN, Double.NaN);
-        // ========================================================================================
-
-        method = "Monte Carlo (Sobol)";
-        System.out.printf(fmttbd, method, Double.NaN, Double.NaN, Double.NaN );
-        //        europeanOption.setPricingEngine(
-        //            new MCEuropeanEngine(
-        //                "LowDiscrepancy", timeSteps, 252,
-        //                false, false, false,
-        //                nSamples, 0.02, maxSamples, mcSeed));
-        //        System.out.printf(fmt, method, europeanOption.NPV(), Double.NaN, Double.NaN);
-        //
-
-        method = "Monte Carlo (Longstaff Schwartz)";
-        System.out.printf(fmttbd, method, Double.NaN, Double.NaN, Double.NaN );
-        //        MakeMCAmericanEngine<PseudoRandom>().withSteps(100)
-        //            .withAntitheticVariate()
-        //            .withCalibrationSamples(4096)
-        //            .withTolerance(0.02)
-        // .           withSeed(mcSeed);
-        //        System.out.printf(fmt, method, europeanOption.NPV(), Double.NaN, Double.NaN);
-
-
+        return (val-option.optionMark.doubleValue())*100;
     }
 
+    public ArrayList<Position> getPositions() {
+        return positions;
+    }
 }

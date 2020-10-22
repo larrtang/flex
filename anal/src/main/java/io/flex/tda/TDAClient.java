@@ -12,9 +12,9 @@ import java.util.Properties;
 
 public class TDAClient {
 
-    public static final String TDA_CLIENT_ID = "io.flex.tda.client_id";
+    public static final String TDA_CLIENT_ID = "tda.client_id";
     public static final String TDA_CLIENT_ID_ENV = "tda_client_id";
-    public static final String TDA_TOKEN_REFRESH = "io.flex.tda.token.refresh";
+    public static final String TDA_TOKEN_REFRESH = "tda.token.refresh";
     public static final String TDA_TOKEN_REFRESH_ENV = "tda_token_refresh";
 
 
@@ -41,8 +41,8 @@ public class TDAClient {
         client = new HttpTdaClient(properties);
     }
 
-    public io.flex.Commons.OptionChain getOptionChain(String symbol) {
-        return new io.flex.Commons.OptionChain(client.getOptionChain(symbol));
+    public io.flex.commons.OptionChain getOptionChain(String symbol) {
+        return new io.flex.commons.OptionChain(client.getOptionChain(symbol));
     }
 
 

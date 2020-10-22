@@ -1,4 +1,4 @@
-package io.flex.Commons;
+package io.flex.commons;
 
 import com.studerw.tda.model.option.Option;
 

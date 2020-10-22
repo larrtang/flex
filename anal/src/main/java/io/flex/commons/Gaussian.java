@@ -1,4 +1,4 @@
-package io.flex.Commons;
+package io.flex.commons;
 
 public class Gaussian {
 
