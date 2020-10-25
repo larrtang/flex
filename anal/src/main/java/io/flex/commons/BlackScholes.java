@@ -12,7 +12,7 @@ public class BlackScholes {
     // estimate by Monte Carlo simulation
     public static double call(double s, double x, double r, double sigma, double t) {
         int n = 10000;
-        double sum = 0.0;
+        double sum = 0.0 ;
         for (int i = 0; i < n; i++) {
             double eps = StdRandom.gaussian();
             double price = s * Math.exp(r*t - 0.5*sigma*sigma*t + sigma*eps*Math.sqrt(t));

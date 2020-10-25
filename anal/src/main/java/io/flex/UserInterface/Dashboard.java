@@ -59,13 +59,13 @@ public class Dashboard extends JFrame {
     private ValueMarker domainMarker;
 
     private void __buildPortfolio() {
-        String expString = "2020-11-13:22";
+        String expString = "2020-11-06:13";
         //String sym = "$SPX.X";
         String sym = "SPY";
-        Instrument o1 = Instrument.createOptionInstrument(tdaClient, sym, 330, expString, PUT);
-        Instrument o2 = Instrument.createOptionInstrument(tdaClient, sym, 340, expString, PUT);
-        Instrument o3 = Instrument.createOptionInstrument(tdaClient, sym, 350, expString, PUT);
-        Instrument o4 = Instrument.createOptionInstrument(tdaClient, sym, 346, expString, CALL);
+        Instrument o1 = Instrument.createOptionInstrument(tdaClient, sym, 330, expString, CALL);
+        Instrument o2 = Instrument.createOptionInstrument(tdaClient, sym, 340, expString, CALL);
+        Instrument o3 = Instrument.createOptionInstrument(tdaClient, sym, 350, expString, CALL);
+        Instrument o4 = Instrument.createOptionInstrument(tdaClient, sym, 340, expString, CALL);
 
         ArrayList<Position> positions = new ArrayList<>();
         positions.add(new Position(o1, 10));
@@ -88,7 +88,7 @@ public class Dashboard extends JFrame {
 
         this.mdEngine = new MarketDataEngine(this.tdaClient, this::updateCharts);
         this.mdEngine.portfolio = this.portfolio;       // setting to this generated portfolio
-        this.riskEngine = new OptionsRiskEngine(this.mdEngine.portfolio, 0.05);
+        this.riskEngine = new OptionsRiskEngine(this.mdEngine.portfolio, 0.1);
         this.riskEngine.positions = this.portfolio.get(this.portfolio.firstSymbol);
 
 
@@ -162,11 +162,11 @@ public class Dashboard extends JFrame {
         OptionsRiskEngine engine = new OptionsRiskEngine(instrument1, 0.05);
         engine.positions = positions;
 
-        Map<Double, Double> riskGraph = engine.getRiskGraphToday();
+        Map<Double, OptionsRiskEngine.Payload> riskGraph = engine.getRiskGraphToday();
         XYSeries series = new XYSeries(instrument1.symbol);
 
-        for (Map.Entry<Double, Double> entry : riskGraph.entrySet()) {
-            series.add(entry.getKey(), entry.getValue());
+        for (Map.Entry<Double, OptionsRiskEngine.Payload> entry : riskGraph.entrySet()) {
+            series.add(entry.getKey(), (Double) entry.getValue().theoPrice);
         }
 
         Map<Double, Double> expRiskGraph = engine.getRiskGraphExpiration(positions);
@@ -213,9 +213,18 @@ public class Dashboard extends JFrame {
         renderer.setSeriesStroke(0, new BasicStroke(0.2f));
         renderer.setSeriesPaint(1, Color.BLUE);
         renderer.setSeriesStroke(1, new BasicStroke(0.7f));
-
-        renderer.setSeriesPaint(2, Color.BLACK);
-        renderer.setSeriesStroke(2, new BasicStroke(0.7f));
+        renderer.setSeriesPaint(2, Color.GREEN);
+        renderer.setSeriesStroke(2, new BasicStroke(0.2f));
+        renderer.setSeriesPaint(3, Color.yellow);
+        renderer.setSeriesStroke(3, new BasicStroke(0.7f));
+        renderer.setSeriesPaint(4, Color.pink);
+        renderer.setSeriesStroke(4, new BasicStroke(0.7f));
+        renderer.setSeriesPaint(5, Color.ORANGE);
+        renderer.setSeriesStroke(5, new BasicStroke(0.2f));
+        renderer.setSeriesPaint(6, Color.MAGENTA);
+        renderer.setSeriesStroke(6, new BasicStroke(0.7f));
+        renderer.setSeriesPaint(7, Color.CYAN);
+        renderer.setSeriesStroke(7, new BasicStroke(0.7f));
 
 
 
@@ -240,11 +249,33 @@ public class Dashboard extends JFrame {
     }
 
     private void updateCharts(Portfolio portfolio) {
-        Map<Double, Double> riskGraph = riskEngine.getRiskGraphToday();
+        Map<Double, OptionsRiskEngine.Payload> riskGraph = riskEngine.getRiskGraphToday();
         XYSeries series = new XYSeries(portfolio.firstSymbol);
 
-        for (Map.Entry<Double, Double> entry : riskGraph.entrySet()) {
-            series.add(entry.getKey(), entry.getValue());
+        for (Map.Entry<Double, OptionsRiskEngine.Payload> entry : riskGraph.entrySet()) {
+            series.add(entry.getKey(), (Double) entry.getValue().getTheoPrice());
+        }
+        XYSeries seriesDelta = new XYSeries(portfolio.firstSymbol);
+
+        for (Map.Entry<Double, OptionsRiskEngine.Payload> entry : riskGraph.entrySet()) {
+            if (!Double.isNaN(entry.getValue().getDelta())) {
+                //System.out.println(entry.getValue().getDelta());
+                seriesDelta.add(entry.getKey(), (Double) entry.getValue().getDelta());
+            }
+        }
+
+        XYSeries seriesTheta = new XYSeries(portfolio.firstSymbol);
+
+        for (Map.Entry<Double, OptionsRiskEngine.Payload> entry : riskGraph.entrySet()) {
+            if (!Double.isNaN(entry.getValue().getTheta()))
+                seriesTheta.add(entry.getKey(), (Double) entry.getValue().getTheta());
+        }
+
+        XYSeries seriesGamma = new XYSeries(portfolio.firstSymbol);
+
+        for (Map.Entry<Double, OptionsRiskEngine.Payload> entry : riskGraph.entrySet()) {
+            if (!Double.isNaN( entry.getValue().getGamma()))
+                seriesGamma.add(entry.getKey(), (Double) entry.getValue().getGamma());
         }
 
         Map<Double, Double> expRiskGraph = riskEngine.getRiskGraphExpiration(riskEngine.positions);
@@ -259,6 +290,9 @@ public class Dashboard extends JFrame {
         XYSeriesCollection dataset = new XYSeriesCollection();
         dataset.addSeries(seriesExp);
         dataset.addSeries(series);
+        //dataset.addSeries(seriesDelta);
+        //dataset.addSeries(seriesGamma);
+       // dataset.addSeries(seriesTheta);
         this.chart_dataset = dataset;
         this.chart.setNotify(true);
         this.chart.getXYPlot().setDataset(this.chart_dataset);
