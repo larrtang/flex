@@ -59,7 +59,7 @@ public class Dashboard extends JFrame {
     private ValueMarker domainMarker;
 
     private void __buildPortfolio() {
-        String expString = "2020-11-06:13";
+        String expString = "2020-11-06:11";
         //String sym = "$SPX.X";
         String sym = "SPY";
         Instrument o1 = Instrument.createOptionInstrument(tdaClient, sym, 330, expString, CALL);
@@ -67,10 +67,22 @@ public class Dashboard extends JFrame {
         Instrument o3 = Instrument.createOptionInstrument(tdaClient, sym, 350, expString, CALL);
         Instrument o4 = Instrument.createOptionInstrument(tdaClient, sym, 340, expString, CALL);
 
+        Instrument o5 = Instrument.createOptionInstrument(tdaClient, sym, 330, expString, CALL);
+        Instrument o6 = Instrument.createOptionInstrument(tdaClient, sym, 335, expString, CALL);
+        Instrument o7 = Instrument.createOptionInstrument(tdaClient, sym, 336, expString, CALL);
+        Instrument o8 = Instrument.createOptionInstrument(tdaClient, sym, 341, expString, CALL);
+
+
         ArrayList<Position> positions = new ArrayList<>();
         positions.add(new Position(o1, 10));
         positions.add(new Position(o2, -20));
         positions.add(new Position(o3, 10));
+
+        positions.add(new Position(o5, 10));
+        positions.add(new Position(o6, -10));
+        positions.add(new Position(o7, -10));
+        positions.add(new Position(o8, 10));
+
         positions.add(new Position(o4, 1));
 
         this.portfolio.put(sym, positions);
