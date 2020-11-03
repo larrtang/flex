@@ -2,7 +2,10 @@ package io.flex.commons;
 
 import com.studerw.tda.model.option.Option;
 
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -27,5 +30,18 @@ public class OptionChain {
         putExpDateMap.forEach((k, v) -> System.out.println(k));
         System.out.println("\nCALLS");
         callExpDateMap.forEach((k, v) -> System.out.println(k));
+    }
+
+    public HashMap<Option.PutCall, ArrayList<String>> getExpirations() {
+        HashMap<Option.PutCall, ArrayList<String>> map = new HashMap<>();
+        ArrayList<String> putList  = new ArrayList<>();
+        ArrayList<String> callList  = new ArrayList<>();
+
+        putExpDateMap.forEach((k, v) -> putList.add(k));
+        callExpDateMap.forEach((k, v) -> callList.add(k));
+
+        map.put(Option.PutCall.PUT, putList);
+        map.put(Option.PutCall.PUT, callList);
+        return map;
     }
 }

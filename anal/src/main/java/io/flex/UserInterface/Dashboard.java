@@ -52,36 +52,31 @@ public class Dashboard extends JFrame {
 
     private final OptionsRiskEngine riskEngine;
 
-    private final Portfolio portfolio = new Portfolio();
+    private Portfolio portfolio = new Portfolio();
 
     private Instrument currentMasterInstrument = null;
 
     private ValueMarker domainMarker;
 
     private void __buildPortfolio() {
-        String expString = "2020-11-06:11";
+        String expString = "2020-11-18:15";
+        String expString2 = "2020-11-20:17";
         //String sym = "$SPX.X";
         String sym = "SPY";
-        Instrument o1 = Instrument.createOptionInstrument(tdaClient, sym, 330, expString, CALL);
-        Instrument o2 = Instrument.createOptionInstrument(tdaClient, sym, 340, expString, CALL);
-        Instrument o3 = Instrument.createOptionInstrument(tdaClient, sym, 350, expString, CALL);
-        Instrument o4 = Instrument.createOptionInstrument(tdaClient, sym, 340, expString, CALL);
+        Instrument o1 = Instrument.createOptionInstrument(tdaClient, sym, 326, expString, CALL);
+        Instrument o2 = Instrument.createOptionInstrument(tdaClient, sym, 336, expString, CALL);
+        Instrument o3 = Instrument.createOptionInstrument(tdaClient, sym, 346, expString, CALL);
+        Instrument o4 = Instrument.createOptionInstrument(tdaClient, sym, 343, expString2, CALL);
 
         Instrument o5 = Instrument.createOptionInstrument(tdaClient, sym, 330, expString, CALL);
         Instrument o6 = Instrument.createOptionInstrument(tdaClient, sym, 335, expString, CALL);
         Instrument o7 = Instrument.createOptionInstrument(tdaClient, sym, 336, expString, CALL);
         Instrument o8 = Instrument.createOptionInstrument(tdaClient, sym, 341, expString, CALL);
 
-
         ArrayList<Position> positions = new ArrayList<>();
         positions.add(new Position(o1, 10));
         positions.add(new Position(o2, -20));
         positions.add(new Position(o3, 10));
-
-        positions.add(new Position(o5, 10));
-        positions.add(new Position(o6, -10));
-        positions.add(new Position(o7, -10));
-        positions.add(new Position(o8, 10));
 
         positions.add(new Position(o4, 1));
 
@@ -262,12 +257,25 @@ public class Dashboard extends JFrame {
 
     private void updateCharts(Portfolio portfolio) {
         Map<Double, OptionsRiskEngine.Payload> riskGraph = riskEngine.getRiskGraphToday();
-        XYSeries series = new XYSeries(portfolio.firstSymbol);
+        XYSeries series = new XYSeries("T+"+riskEngine.eval_days_from_now);
 
         for (Map.Entry<Double, OptionsRiskEngine.Payload> entry : riskGraph.entrySet()) {
             series.add(entry.getKey(), (Double) entry.getValue().getTheoPrice());
         }
-        XYSeries seriesDelta = new XYSeries(portfolio.firstSymbol);
+        Map<Double, OptionsRiskEngine.Payload> riskGraph2 = riskEngine.getRiskGraphAfterEvalDate(1);
+        XYSeries series2 = new XYSeries("T+"+(riskEngine.eval_days_from_now+1));
+
+        for (Map.Entry<Double, OptionsRiskEngine.Payload> entry : riskGraph2.entrySet()) {
+            series2.add(entry.getKey(), (Double) entry.getValue().getTheoPrice());
+        }
+        Map<Double, OptionsRiskEngine.Payload> riskGraph3 = riskEngine.getRiskGraphAfterEvalDate(2);
+        XYSeries series3 = new XYSeries("T+"+(riskEngine.eval_days_from_now+2));
+
+        for (Map.Entry<Double, OptionsRiskEngine.Payload> entry : riskGraph3.entrySet()) {
+            series3.add(entry.getKey(), (Double) entry.getValue().getTheoPrice());
+        }
+
+        XYSeries seriesDelta = new XYSeries("Delta");
 
         for (Map.Entry<Double, OptionsRiskEngine.Payload> entry : riskGraph.entrySet()) {
             if (!Double.isNaN(entry.getValue().getDelta())) {
@@ -276,22 +284,29 @@ public class Dashboard extends JFrame {
             }
         }
 
-        XYSeries seriesTheta = new XYSeries(portfolio.firstSymbol);
+        XYSeries seriesTheta = new XYSeries("Theta");
 
         for (Map.Entry<Double, OptionsRiskEngine.Payload> entry : riskGraph.entrySet()) {
             if (!Double.isNaN(entry.getValue().getTheta()))
                 seriesTheta.add(entry.getKey(), (Double) entry.getValue().getTheta());
         }
 
-        XYSeries seriesGamma = new XYSeries(portfolio.firstSymbol);
+        XYSeries seriesGamma = new XYSeries("Gamma");
 
         for (Map.Entry<Double, OptionsRiskEngine.Payload> entry : riskGraph.entrySet()) {
             if (!Double.isNaN( entry.getValue().getGamma()))
                 seriesGamma.add(entry.getKey(), (Double) entry.getValue().getGamma());
         }
 
+        XYSeries seriesVega = new XYSeries("Vega");
+
+        for (Map.Entry<Double, OptionsRiskEngine.Payload> entry : riskGraph.entrySet()) {
+            if (!Double.isNaN( entry.getValue().getVega()))
+                seriesVega.add(entry.getKey(), (Double) entry.getValue().getVega());
+        }
+
         Map<Double, Double> expRiskGraph = riskEngine.getRiskGraphExpiration(riskEngine.positions);
-        XYSeries seriesExp = new XYSeries(portfolio.firstSymbol);
+        XYSeries seriesExp = new XYSeries("Expiration");
 
         for (Map.Entry<Double, Double> entry : expRiskGraph.entrySet()) {
             seriesExp.add(entry.getKey(), entry.getValue());
@@ -302,9 +317,12 @@ public class Dashboard extends JFrame {
         XYSeriesCollection dataset = new XYSeriesCollection();
         dataset.addSeries(seriesExp);
         dataset.addSeries(series);
-        //dataset.addSeries(seriesDelta);
-        //dataset.addSeries(seriesGamma);
-       // dataset.addSeries(seriesTheta);
+        dataset.addSeries(series2);
+        dataset.addSeries(series3);
+//        dataset.addSeries(seriesDelta);
+//        dataset.addSeries(seriesGamma);
+//        dataset.addSeries(seriesTheta);
+//        dataset.addSeries(seriesVega);
         this.chart_dataset = dataset;
         this.chart.setNotify(true);
         this.chart.getXYPlot().setDataset(this.chart_dataset);
@@ -315,4 +333,14 @@ public class Dashboard extends JFrame {
     public static void main(String[] args) {
         new Dashboard();
     }
+
+
+    public Portfolio getPortfolio() {
+        return portfolio;
+    }
+
+    public void setPortfolio(Portfolio portfolio) {
+        this.portfolio = portfolio;
+    }
+
 }

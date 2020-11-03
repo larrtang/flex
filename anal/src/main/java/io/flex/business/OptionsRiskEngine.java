@@ -97,19 +97,71 @@ public class OptionsRiskEngine {
                 Payload payload = getTheoreticalValue(leg.instrument, i);
                 if (payload != null) {
                     payload.theoPrice *= leg.quantity;
+                    payload.delta *= leg.quantity;
+                    payload.gamma *= leg.quantity;
+                    payload.theta *= leg.quantity;
+                    payload.vega  *= leg.quantity;
+
 
                     if (riskMap.containsKey(i)) {
                         Payload mapPayload = riskMap.get(i);
                         mapPayload.theoPrice += payload.theoPrice;
-                        if (!Double.isNaN(payload.getDelta()) && !Double.isNaN(payload.getTheta()) && !Double.isNaN(payload.getGamma())) {
-                            mapPayload.delta += payload.delta * leg.quantity;
-                            mapPayload.gamma += payload.gamma * leg.quantity;
-                            mapPayload.theta += payload.theta * leg.quantity;
+                        if (!Double.isNaN(payload.getDelta())
+                                && !Double.isNaN(payload.getTheta())
+                                && !Double.isNaN(payload.getVega())
+                                && !Double.isNaN(payload.getGamma())) {
+                            mapPayload.delta += payload.delta;
+                            mapPayload.gamma += payload.gamma;
+                            mapPayload.theta += payload.theta;
+                            mapPayload.vega += payload.vega;
                         }
 
                         riskMap.put(i, mapPayload);
                     } else {
                         riskMap.put(i, payload);
+
+                    }
+                }
+            }
+        }
+//        riskMap.forEach((k,v) -> {
+//            System.out.println(k +" " + v);
+//        });
+        return riskMap;
+    }
+
+
+    public Map<Double, Payload> getRiskGraphAfterEvalDate(int evalDaysFromNow) {
+        Map<Double, Payload> riskMap = new HashMap<>();
+
+        for (double i = this.evalStartPrice; i <= this.evalEndPrice; i += this.granularity) {
+            for (Position leg : this.positions) {
+                Payload payload = getTheoreticalValue(leg.instrument, i, evalDaysFromNow);
+                if (payload != null) {
+                    payload.theoPrice *= leg.quantity;
+                    payload.delta *= leg.quantity;
+                    payload.gamma *= leg.quantity;
+                    payload.theta *= leg.quantity;
+                    payload.vega  *= leg.quantity;
+
+
+                    if (riskMap.containsKey(i)) {
+                        Payload mapPayload = riskMap.get(i);
+                        mapPayload.theoPrice += payload.theoPrice;
+                        if (!Double.isNaN(payload.getDelta())
+                                && !Double.isNaN(payload.getTheta())
+                                && !Double.isNaN(payload.getVega())
+                                && !Double.isNaN(payload.getGamma())) {
+                            mapPayload.delta += payload.delta;
+                            mapPayload.gamma += payload.gamma;
+                            mapPayload.theta += payload.theta;
+                            mapPayload.vega += payload.vega;
+                        }
+
+                        riskMap.put(i, mapPayload);
+                    } else {
+                        riskMap.put(i, payload);
+
                     }
                 }
             }
@@ -195,6 +247,10 @@ public class OptionsRiskEngine {
     }
 
     private Payload getTheoreticalValue(Instrument option, double underlyingMark) {
+        return this.getTheoreticalValue(option,underlyingMark, this.eval_days_from_now);
+    }
+
+    private Payload getTheoreticalValue(Instrument option, double underlyingMark, int evalDaysFromNow) {
         //double val = 0;
         Payload payload = new Payload();
 
@@ -204,7 +260,7 @@ public class OptionsRiskEngine {
         // set up dates
         final Calendar calendar = new Target();
         final Date todaysDate = Date.todaysDate();
-        final Date settlementDate = todaysDate.add(eval_days_from_now);  //days from the current day, projected pnl
+        final Date settlementDate = todaysDate.add(eval_days_from_now + evalDaysFromNow);  //days from the current day, projected pnl
         new Settings().setEvaluationDate(todaysDate);
 
         final org.jquantlib.instruments.Option.Type type;
@@ -269,6 +325,7 @@ public class OptionsRiskEngine {
         payload.delta = americanOption.delta();
         payload.gamma = americanOption.gamma();
         payload.theta = americanOption.theta();
+        payload.vega = americanOption.vega();
      //   System.out.println(option.strike + "\t" + underlyingMark + "\t" + payload);
       //  System.out.println(americanOption.delta());
 ////        if (Double.isNaN(payload.delta) || Double.isNaN(payload.gamma) || Double.isNaN(payload.theta)) {
@@ -385,10 +442,13 @@ public class OptionsRiskEngine {
             return theta;
         }
 
+        public double getVega() {return vega;}
+
         public double theoPrice;
         public double delta;
         public double gamma;
         public double theta;
+        public double vega;
 
         @Override
         public String toString() {
@@ -397,6 +457,7 @@ public class OptionsRiskEngine {
                     ", delta=" + delta +
                     ", gamma=" + gamma +
                     ", theta=" + theta +
+                    ", vega=" + vega +
                     '}';
         }
     }
