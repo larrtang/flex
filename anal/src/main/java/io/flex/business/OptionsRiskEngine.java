@@ -55,11 +55,12 @@ public class OptionsRiskEngine {
 
     private double evalStartPrice;
     private double evalEndPrice;
-    private final double EVAL_PRICE_THRESH_PERCENT = 0.10;
+    private final double EVAL_PRICE_THRESH_PERCENT = 0.08;
 
     public  ArrayList<Position> positions = new ArrayList<>();
 
     public int eval_days_from_now = 0;
+    public double vol_offset = 0;
 
     public OptionsRiskEngine(
             Instrument option,
@@ -260,7 +261,7 @@ public class OptionsRiskEngine {
         // set up dates
         final Calendar calendar = new Target();
         final Date todaysDate = Date.todaysDate();
-        final Date settlementDate = todaysDate.add(eval_days_from_now + evalDaysFromNow);  //days from the current day, projected pnl
+        final Date settlementDate = todaysDate.add(evalDaysFromNow);  //days from the current day, projected pnl
         new Settings().setEvaluationDate(todaysDate);
 
         final org.jquantlib.instruments.Option.Type type;
@@ -273,7 +274,7 @@ public class OptionsRiskEngine {
         final double strike = option.strike.doubleValue();
         final double underlying = underlyingMark;
         /*@Rate*/final double riskFreeRate = 0.01;
-        final double volatility = option.iv;
+        final double volatility = option.iv + vol_offset;
         final double dividendYield = 0.00;
 
 
@@ -321,24 +322,28 @@ public class OptionsRiskEngine {
         // Barone-Adesi and Whaley approximation for American
         method = "Barone-Adesi/Whaley";
         americanOption.setPricingEngine(new BaroneAdesiWhaleyApproximationEngine(bsmProcess));
-        payload.theoPrice = (americanOption.NPV()-option.optionMark.doubleValue())*100;
-        payload.delta = americanOption.delta();
-        payload.gamma = americanOption.gamma();
-        payload.theta = americanOption.theta();
-        payload.vega = americanOption.vega();
+//        payload.theoPrice = (americanOption.NPV()-option.optionMark.doubleValue())*100;
+//        payload.delta = americanOption.delta();
+//        payload.gamma = americanOption.gamma();
+//        payload.theta = americanOption.theta();
+//        payload.vega = americanOption.vega();
      //   System.out.println(option.strike + "\t" + underlyingMark + "\t" + payload);
       //  System.out.println(americanOption.delta());
 ////        if (Double.isNaN(payload.delta) || Double.isNaN(payload.gamma) || Double.isNaN(payload.theta)) {
 ////            return null;
 ////        }
 //
-//        // Bjerksund and Stensland approximation for American
-//        method = "Bjerksund/Stensland";
-//        americanOption.setPricingEngine(new BjerksundStenslandApproximationEngine(bsmProcess));
-//
-//        // Ju Quadratic approximation for American
-//        method = "Ju Quadratic";
-//        americanOption.setPricingEngine(new JuQuadraticApproximationEngine(bsmProcess));
+        // Bjerksund and Stensland approximation for American
+        method = "Bjerksund/Stensland";
+        americanOption.setPricingEngine(new BjerksundStenslandApproximationEngine(bsmProcess));
+        payload.theoPrice = (americanOption.NPV()-option.optionMark.doubleValue())*100;
+        payload.delta = americanOption.delta();
+        payload.gamma = americanOption.gamma();
+        payload.theta = americanOption.theta();
+        payload.vega = americanOption.vega();
+        // Ju Quadratic approximation for American
+        method = "Ju Quadratic";
+        americanOption.setPricingEngine(new JuQuadraticApproximationEngine(bsmProcess));
 //
 //        // Integral
 //        method = "Integral";

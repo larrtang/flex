@@ -5,9 +5,7 @@ import io.flex.commons.Instrument;
 import io.flex.commons.Portfolio;
 import io.flex.commons.Position;
 import io.flex.business.OptionsRiskEngine;
-import org.jfree.chart.JFreeChart;
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartPanel;
+import org.jfree.chart.*;
 import org.jfree.chart.block.BlockBorder;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.plot.ValueMarker;
@@ -22,10 +20,14 @@ import com.studerw.tda.model.option.Option;
 import com.studerw.tda.model.option.Option.PutCall.*;
 
 import io.flex.tda.TDAClient;
+import org.jfree.ui.Layer;
+import org.jquantlib.math.Grid;
 import org.jquantlib.math.Ops;
 
 import javax.sound.sampled.Port;
 import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import java.awt.*;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
@@ -58,18 +60,24 @@ public class Dashboard extends JFrame {
 
     private ValueMarker domainMarker;
 
+    private ValueMarker cursorMarker;
+
+    private JSlider volSlider;
+
+    private JLabel volLabel;
+
     private void __buildPortfolio() {
-        String expString = "2020-11-18:15";
-        String expString2 = "2020-11-20:17";
+        String expString = "2020-11-09:6";
+        String expString2 = "2020-11-23:20";
         //String sym = "$SPX.X";
         String sym = "SPY";
-        Instrument o1 = Instrument.createOptionInstrument(tdaClient, sym, 326, expString, CALL);
-        Instrument o2 = Instrument.createOptionInstrument(tdaClient, sym, 336, expString, CALL);
-        Instrument o3 = Instrument.createOptionInstrument(tdaClient, sym, 346, expString, CALL);
-        Instrument o4 = Instrument.createOptionInstrument(tdaClient, sym, 343, expString2, CALL);
+        Instrument o1 = Instrument.createOptionInstrument(tdaClient, sym, 329, expString, CALL);
+        Instrument o2 = Instrument.createOptionInstrument(tdaClient, sym, 339, expString, CALL);
+        Instrument o3 = Instrument.createOptionInstrument(tdaClient, sym, 349, expString, CALL);
+        Instrument o4 = Instrument.createOptionInstrument(tdaClient, sym, 349, expString, CALL);
 
         Instrument o5 = Instrument.createOptionInstrument(tdaClient, sym, 330, expString, CALL);
-        Instrument o6 = Instrument.createOptionInstrument(tdaClient, sym, 335, expString, CALL);
+        Instrument o6 = Instrument.createOptionInstrument(tdaClient, sym, 330, expString2, CALL);
         Instrument o7 = Instrument.createOptionInstrument(tdaClient, sym, 336, expString, CALL);
         Instrument o8 = Instrument.createOptionInstrument(tdaClient, sym, 341, expString, CALL);
 
@@ -80,16 +88,27 @@ public class Dashboard extends JFrame {
 
         positions.add(new Position(o4, 1));
 
+//        positions.add(new Position(o5, -10));
+//        positions.add(new Position(o6, 10));
+
+
         this.portfolio.put(sym, positions);
         this.currentMasterInstrument = o1;
     }
 
     public Dashboard() {
-        this.setMinimumSize(new Dimension(1300,600));
-        this.setTitle("Line chart");
+        this.setMinimumSize(new Dimension(1300,700));
+        this.setTitle(this.getName());
         this.setLocationRelativeTo(null);
         this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
+        this.setLayout(new GridBagLayout());
+        GridBagConstraints c = new GridBagConstraints();
+        c.gridx = 0;
+        c.gridy = 0;
+        c.ipadx = 0;
+        c.ipady = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
         this.tdaClient = new TDAClient();
         this.__buildPortfolio();
 
@@ -104,16 +123,74 @@ public class Dashboard extends JFrame {
         //this.chart_dataset = createDataset();
         this.chart = createChart(this.chart_dataset);
         chartPanel = new ChartPanel(chart);
-        chartPanel.setMinimumSize(new Dimension(1200,800));
-        chartPanel.setSize(1200, 800);
-        chartPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        chartPanel.setMinimumSize(new Dimension(1300,600));
+
+        //chartPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         chartPanel.setBackground(Color.white);
 
+        cursorMarker = new ValueMarker(320);
+        chart.getXYPlot().addDomainMarker(cursorMarker);
+
+        chartPanel.addChartMouseListener(new ChartMouseListener() {
+            @Override
+            public void chartMouseClicked(ChartMouseEvent chartMouseEvent) {
+                cursorMarker.setValue(chartMouseEvent.getChart().getXYPlot().getDomainCrosshairValue());
+                System.out.println(chartMouseEvent.getChart().getXYPlot().getDomainCrosshairValue());
+                chartPanel.repaint();
+            }
+
+            @Override
+            public void chartMouseMoved(ChartMouseEvent chartMouseEvent) {
+
+            }
+        });
         domainMarker = new ValueMarker(this.currentMasterInstrument.underlyingMark);
         this.chart.getXYPlot().addDomainMarker(domainMarker);
         this.chart.getXYPlot().addRangeMarker(new ValueMarker(0));
+        c.ipady = 200;      //make this component tall
 
-        add(chartPanel);
+        c.weightx = 0.0;
+        c.weighty = 0.0;
+        c.gridwidth = 3;
+        c.gridheight =5;
+        add(chartPanel, c);
+
+        // setup volatility slider
+        this.volSlider = new JSlider();
+        this.volSlider.setMinimum(-15);
+        this.volSlider.setMaximum(15);
+        this.volSlider.setValue(0);
+        this.volSlider.setMaximumSize(new Dimension(300, 50));
+        this.volLabel = new JLabel("IV +/- :"+ Integer.toString(volSlider.getValue())+ "%", JLabel.RIGHT);
+        this.volLabel.setForeground(Color.black);
+        this.volLabel.setPreferredSize(new Dimension(100,50));
+        this.volLabel.setMinimumSize(new Dimension(100,50));
+        this.volLabel.setVisible(true);
+        this.volLabel.setBackground(Color.lightGray);
+        this.volSlider.setMaximumSize(new Dimension(80,20));
+        this.volSlider.addChangeListener(new ChangeListener() {
+            @Override
+            public void stateChanged(ChangeEvent changeEvent) {
+             //   updateCharts(portfolio);
+                volLabel.setText("IV +/- :"+ Integer.toString(volSlider.getValue()) + "%");
+                riskEngine.vol_offset = volSlider.getValue()*0.01;
+            }
+        });
+        c.gridy = 6;
+        c.gridx = 0;
+        c.weightx = 0.1;
+        c.weighty = 0.1;
+        c.ipady = 20;
+        c.anchor = GridBagConstraints.LAST_LINE_START;
+        c.fill = GridBagConstraints.PAGE_END;
+        add(volSlider,c);
+
+        c.gridx++;
+        c.ipadx = 20;
+        c.weightx = 0.2;
+        c.anchor = GridBagConstraints.LAST_LINE_END;
+        c.fill = GridBagConstraints.LAST_LINE_END;
+        add(volLabel, c);
 
         pack();
         this.setVisible(true);
@@ -262,14 +339,14 @@ public class Dashboard extends JFrame {
         for (Map.Entry<Double, OptionsRiskEngine.Payload> entry : riskGraph.entrySet()) {
             series.add(entry.getKey(), (Double) entry.getValue().getTheoPrice());
         }
-        Map<Double, OptionsRiskEngine.Payload> riskGraph2 = riskEngine.getRiskGraphAfterEvalDate(1);
-        XYSeries series2 = new XYSeries("T+"+(riskEngine.eval_days_from_now+1));
+        Map<Double, OptionsRiskEngine.Payload> riskGraph2 = riskEngine.getRiskGraphAfterEvalDate(2);
+        XYSeries series2 = new XYSeries("T+"+(riskEngine.eval_days_from_now+2));
 
         for (Map.Entry<Double, OptionsRiskEngine.Payload> entry : riskGraph2.entrySet()) {
             series2.add(entry.getKey(), (Double) entry.getValue().getTheoPrice());
         }
-        Map<Double, OptionsRiskEngine.Payload> riskGraph3 = riskEngine.getRiskGraphAfterEvalDate(2);
-        XYSeries series3 = new XYSeries("T+"+(riskEngine.eval_days_from_now+2));
+        Map<Double, OptionsRiskEngine.Payload> riskGraph3 = riskEngine.getRiskGraphAfterEvalDate(4);
+        XYSeries series3 = new XYSeries("T+"+(riskEngine.eval_days_from_now+4));
 
         for (Map.Entry<Double, OptionsRiskEngine.Payload> entry : riskGraph3.entrySet()) {
             series3.add(entry.getKey(), (Double) entry.getValue().getTheoPrice());
