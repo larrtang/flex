@@ -67,8 +67,8 @@ public class Dashboard extends JFrame {
     private JLabel volLabel;
 
     private void __buildPortfolio() {
-        String expString = "2020-11-09:6";
-        String expString2 = "2020-11-23:20";
+        String expString = "2020-11-23:19";
+        String expString2 = "2020-11-23:19";
         //String sym = "$SPX.X";
         String sym = "SPY";
         Instrument o1 = Instrument.createOptionInstrument(tdaClient, sym, 329, expString, CALL);
