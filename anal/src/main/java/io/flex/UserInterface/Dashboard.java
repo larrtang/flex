@@ -66,14 +66,18 @@ public class Dashboard extends JFrame {
 
     private JLabel volLabel;
 
+    private OptionsTable optionsTable = new OptionsTable(portfolio);
+
+    private JScrollPane scrollPane = new JScrollPane(optionsTable);
+
     private void __buildPortfolio() {
-        String expString = "2020-11-23:19";
+        String expString = "2020-11-23:18";
         String expString2 = "2020-11-23:19";
         //String sym = "$SPX.X";
         String sym = "SPY";
         Instrument o1 = Instrument.createOptionInstrument(tdaClient, sym, 329, expString, CALL);
         Instrument o2 = Instrument.createOptionInstrument(tdaClient, sym, 339, expString, CALL);
-        Instrument o3 = Instrument.createOptionInstrument(tdaClient, sym, 349, expString, CALL);
+        Instrument o3 = Instrument.createOptionInstrument(tdaClient, sym, 348, expString, CALL);
         Instrument o4 = Instrument.createOptionInstrument(tdaClient, sym, 349, expString, CALL);
 
         Instrument o5 = Instrument.createOptionInstrument(tdaClient, sym, 330, expString, CALL);
@@ -191,6 +195,14 @@ public class Dashboard extends JFrame {
         c.anchor = GridBagConstraints.LAST_LINE_END;
         c.fill = GridBagConstraints.LAST_LINE_END;
         add(volLabel, c);
+
+        c.gridy++;
+        c.gridx = 0;
+        c.ipady = 20;
+        c.weighty = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        add(scrollPane, c);
+
 
         pack();
         this.setVisible(true);
@@ -404,6 +416,10 @@ public class Dashboard extends JFrame {
         this.chart.setNotify(true);
         this.chart.getXYPlot().setDataset(this.chart_dataset);
         this.chartPanel.repaint();
+
+        this.optionsTable = new OptionsTable(portfolio);
+        scrollPane.setViewportView(this.optionsTable);
+        scrollPane.repaint();
         System.out.print(".");
     }
 
